@@ -1,0 +1,11 @@
+{{- if .Values.configmap.create }}
+apiVersion: v1
+{{- with .Values.configmap.data }}
+data:
+  {{- toYaml . | nindent 4 }}
+{{- end }}
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configmap.name }}
+  namespace: {{ .Values.NameSpace }}
+{{- end }}

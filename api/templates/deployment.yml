@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.prefix }}-{{ .Values.appName }}-deployment"
+  namespace: "{{ .Values.NameSpace }}"
+  labels:
+     app: "{{ .Values.prefix }}-{{ .Values.appName }}"
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: "{{ .Values.prefix }}-{{ .Values.appName }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.prefix }}-{{ .Values.appName }}"
+        namespace: "{{ .Values.NameSpace }}"
+    spec:
+      imagePullSecrets: 
+        - name: {{ .Values.imagePullSecretName }}
+    {{- if .Values.initContainer.enabled }}
+      initContainers:
+      {{- range .Values.initContainer.containers }}
+        - name: {{ .containerName }}
+          image: {{ .imageName }}
+        {{- if .command }}
+          command: {{ .command }}
+        {{- end }}
+        {{- if .args }}
+          args: {{ .args }}
+        {{- end}}
+          {{- if .environment.enabled }}
+          env: 
+          {{- range .environment.data }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+          {{- end }}
+          {{- end }}
+          {{- if .environmentFrom }}
+          envFrom:
+          {{- if .configmap.enabled }}
+            - configMapRef:
+                name: {{ .configmap.name }}
+          {{- end }}
+          {{- if .secret.enabled }}
+            - secretRef:
+                name: {{ .secret.name }}
+          {{- end }}
+          {{- end }}
+      {{- end }}
+    {{- end}}
+      containers:
+        - name: "{{ .Values.prefix }}-{{ .Values.appName }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion  }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.environment.enabled }}
+          env: 
+          {{- range .Values.environment.data }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.environmentFrom }}
+          envFrom:
+          {{- if .Values.configmap.enabled }}
+            - configMapRef:
+                name: {{ .Values.configmap.name }}
+          {{- end }}
+          {{- if .Values.secret.enabled }}
+            - secretRef:
+                name: {{ .Values.secret.name }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
